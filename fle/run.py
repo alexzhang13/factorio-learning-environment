@@ -24,24 +24,26 @@ def fle_init():
 
 
 def fle_cluster(args):
-    cluster_path = Path(__file__).parent / "cluster"
-    script = cluster_path / "run-envs.sh"
-    if not script.exists():
-        print(f"Cluster script not found: {script}", file=sys.stderr)
+    from fle.cluster.run_envs import ClusterManager
+
+    command = getattr(args, "cluster_command", None) or "start"
+    if command == "help":
+        print("Usage: fle cluster [start|stop|restart|help] [-n N] [-s SCENARIO]")
+        return
+
+    manager = ClusterManager()
+    if command == "start":
+        manager.start(
+            num_instances=getattr(args, "n", None) or 1,
+            scenario=getattr(args, "s", None) or "default_lab_scenario",
+        )
+    elif command == "stop":
+        manager.stop()
+    elif command == "restart":
+        manager.restart()
+    else:
+        print(f"Unknown cluster command: {command}", file=sys.stderr)
         sys.exit(1)
-    cmd = [str(script)]
-    if args:
-        if args.cluster_command:
-            cmd.append(args.cluster_command)
-        if args.n:
-            cmd.extend(["-n", str(args.n)])
-        if args.s:
-            cmd.extend(["-s", args.s])
-    try:
-        subprocess.run(cmd, cwd=str(cluster_path), check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running cluster script: {e}", file=sys.stderr)
-        sys.exit(e.returncode)
 
 
 def fle_eval(args):

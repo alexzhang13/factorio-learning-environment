@@ -236,7 +236,7 @@ freeplay.on_configuration_changed = function()
   end
 end
 
-storage.story_table =
+story_table =
 {
   {
     {
@@ -277,7 +277,7 @@ storage.story_table =
     }
   }
 }
-story_init_helpers(storage.story_table)
+story_init_helpers(story_table)
 
 freeplay.on_init = function()
   storage.story = story_init()
@@ -293,7 +293,5 @@ freeplay.on_init = function()
   end
 
 end
-
-story_init_helpers(story_table)
 
 return freeplay

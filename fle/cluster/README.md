@@ -12,10 +12,15 @@ The system allows you to:
 - Share scenarios across instances
 - Choose between different scenarios (open_world or default_lab_scenario)
 
+## `fle cluster`
+
+- Main CLI for generating compose yaml
+- Running and managing Factorio instances with options for scenario selection
+
 ## `run-envs.sh`
 
- - Main script for generating compose yaml
- - Running and managing Factorio instances with options for scenario selection
+ - Legacy script for generating compose yaml
+ - Prefer `fle cluster` for new local development
 
 ## Setup and Usage
 
@@ -24,30 +29,30 @@ The system allows you to:
 - Docker installed and running
 - Optional: Factorio game client installed locally
 
-### Managing Server Instances with run-envs.sh
+### Managing Server Instances with `fle cluster`
 
-The `run-envs.sh` script provides a convenient way to start, stop, and manage Factorio server instances.
+The `fle cluster` command provides a convenient way to start, stop, and manage Factorio server instances.
 
 #### Basic Usage
 
 ```bash
 # Start a single instance with default settings (default_lab_scenario)
-./run-envs.sh
+fle cluster start
 
 # Start 5 instances with default scenario
-./run-envs.sh -n 5
+fle cluster start -n 5
 
 # Start 3 instances with open_world scenario
-./run-envs.sh -n 3 -s open_world
+fle cluster start -n 3 -s open_world
 
 # Stop all running instances
-./run-envs.sh stop
+fle cluster stop
 
 # Restart the current cluster with the same configuration
-./run-envs.sh restart
+fle cluster restart
 
 # Show help information
-./run-envs.sh help
+fle cluster help
 ```
 
 #### Command Line Options
@@ -66,10 +71,10 @@ The `run-envs.sh` script provides a convenient way to start, stop, and manage Fa
 
 ```bash
 # Start 10 instances with open_world scenario
-./run-envs.sh start -n 10 -s open_world
+fle cluster start -n 10 -s open_world
 
 # Restart the current cluster
-./run-envs.sh restart
+fle cluster restart
 ```
 
 
@@ -83,6 +88,18 @@ Each Factorio instance is configured with:
 - Unique TCP port for RCON (starting at 27015)
 - Choice of scenario (open_world or default_lab_scenario)
 
+### Multiplayer Access Lists
+
+Cluster startup creates a writable runtime config directory under the FLE state directory and mounts it into each container. Seed multiplayer clients and subagents with comma-separated environment variables before starting the cluster:
+
+```bash
+FLE_FACTORIO_WHITELIST="spectator,subagent-1,subagent-2" \
+FLE_FACTORIO_ADMINS="admin" \
+fle cluster start -n 3
+```
+
+The generated access-list files are preserved across restarts and merged with later environment-variable values instead of replaced.
+
 ## Port Mappings
 
 - Game ports (UDP): 34197 + instance_number
@@ -94,6 +111,8 @@ The following directories are mounted in each container:
 
 - Scenarios: `../scenarios/default_lab_scenario`, `../scenarios/open_world`
 - Mods: `~/Applications/Factorio.app/Contents/Resources/mods`
+- Runtime config: `<state_dir>/config`
+- Saves: `<state_dir>/saves`
 - Screenshots: `../../data/_screenshots`
 
 ## Notes

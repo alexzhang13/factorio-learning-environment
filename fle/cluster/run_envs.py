@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import platform
+import socket
 import subprocess
 import sys
-import socket
 from pathlib import Path
 import shutil
 import yaml
@@ -149,6 +150,46 @@ class ComposeGenerator:
     def _save_path(self):
         return self.state_dir / "saves"
 
+    def _runtime_config_path(self):
+        return self.state_dir / "config"
+
+    def _seed_access_list(
+        self, path: Path, env_var: str, default_names: list[str] | None = None
+    ):
+        exists = path.exists()
+        names = json.loads(path.read_text()) if exists else list(default_names or [])
+        env_value = os.environ.get(env_var)
+        if env_value:
+            names.extend(name.strip() for name in env_value.split(",") if name.strip())
+        # Merge rather than replace so Factorio edits made in the writable
+        # runtime config survive across cluster restarts.
+        if not exists or env_value:
+            path.write_text(json.dumps(sorted(set(names))) + "\n")
+
+    def _prepare_runtime_dirs(self):
+        saves_dir = self._save_path()
+        saves_dir.mkdir(parents=True, exist_ok=True)
+
+        config_dir = self._runtime_config_path()
+        if not config_dir.exists():
+            shutil.copytree(self._package_config_dir(), config_dir)
+        else:
+            for source in self._package_config_dir().iterdir():
+                target = config_dir / source.name
+                if source.is_file() and not target.exists():
+                    shutil.copy2(source, target)
+        self._seed_access_list(
+            config_dir / "server-whitelist.json", "FLE_FACTORIO_WHITELIST"
+        )
+        self._seed_access_list(
+            config_dir / "server-adminlist.json",
+            "FLE_FACTORIO_ADMINS",
+            ["client_master"],
+        )
+        self._seed_access_list(
+            config_dir / "server-banlist.json", "FLE_FACTORIO_BANLIST"
+        )
+
     def _copy_save(self, save_file: str):
         save_dir = self._save_path().resolve()
         save_file_name = Path(save_file).name
@@ -216,14 +257,17 @@ class ComposeGenerator:
             "type": "bind",
         }
 
-    def _config_volume(self):
-        # Resolve from package resources if provided
+    def _package_config_dir(self):
         config_dir = self.pkg_config_dir
         if config_dir is None:
             pkg_root = ir.files("fle.cluster")
             config_dir = Path(pkg_root / "config")
         if not config_dir.exists():
             raise ValueError(f"Config directory '{config_dir}' does not exist.")
+        return config_dir
+
+    def _config_volume(self):
+        config_dir = self._runtime_config_path()
         return {
             "source": str(config_dir.resolve()),
             "target": "/opt/factorio/config",
@@ -241,9 +285,8 @@ class ComposeGenerator:
                 self._screenshots_volume(),
                 # Include bundled mod-list config (disables DLC for client sync)
                 self._bundled_mods_volume(),
+                self._save_volume(),
             ]
-            if self.save_file:
-                volumes.append(self._save_volume())
             # Note: attach_mod overlays user mods on top of bundled mods (not currently used)
             services[f"factorio_{i}"] = {
                 "image": self.image,
@@ -266,10 +309,9 @@ class ComposeGenerator:
         return {"services": self.services_dict(num_instances)}
 
     def write(self, path: str, num_instances: int):
+        self._prepare_runtime_dirs()
         # Handle save file copy if provided
         if self.save_file:
-            save_dir = self._save_path()
-            save_dir.mkdir(parents=True, exist_ok=True)
             self._copy_save(self.save_file)
         data = self.compose_dict(num_instances)
         with open(path, "w") as f:
@@ -349,7 +391,7 @@ class ClusterManager:
         print(f"  work_dir:    {self.work_dir}")
         print(f"  compose:     {self.compose_path}")
         print(f"  scenarios:   {self.pkg_scenarios_dir}")
-        print(f"  config:      {self.pkg_config_dir}")
+        print(f"  config:      {self.state_dir / 'config'}")
 
         print(
             f"Starting {num_instances} Factorio instance(s) with scenario {scenario}..."
