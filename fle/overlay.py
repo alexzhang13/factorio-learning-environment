@@ -7,6 +7,7 @@ Designed to sit alongside the Factorio client window.
 import argparse
 import asyncio
 import base64
+import os
 import time
 import threading
 import logging
@@ -35,11 +36,11 @@ class IconManager:
 
     def __init__(
         self,
-        sprites_path: Path = Path(
-            "/Users/jackhopkins/PycharmProjects/PaperclipMaximiser/.fle/sprites"
-        ),
+        sprites_path: Optional[Path] = None,
     ):
-        self.sprites_path = sprites_path
+        self.sprites_path = sprites_path or Path(
+            os.environ.get("FLE_SPRITES_PATH", Path.home() / ".fle" / "sprites")
+        )
         self.icon_cache = {}
         self.base64_cache = {}
         self._load_available_icons()

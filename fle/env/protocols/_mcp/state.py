@@ -256,55 +256,70 @@ class FactorioMCPState:
         if self.recipes_loaded:
             return self.recipes
 
-        recipes_path = (
-            Path(__file__).parent.parent / "data" / "recipes" / "recipes.jsonl"
-        )
-
-        if not recipes_path.exists():
-            # Fall back to absolute path if relative path fails
-            recipes_path = Path(
-                "/Users/jackhopkins/PycharmProjects/PaperclipMaximiser/data/recipes/recipes.jsonl"
-            )
+        recipes_path = self._find_data_file(Path("data") / "recipes" / "recipes.jsonl")
+        if recipes_path is None:
+            recipes_path = self._find_data_file(Path("data") / "recipes" / "recipes.lua")
+        if recipes_path is None:
+            raise FileNotFoundError("Could not find Factorio recipe data")
 
         try:
-            recipes = {}
-            with open(recipes_path, "r") as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            recipe_data = json.loads(line)
-                            # Extract top-level ingredients and results
-                            ingredients = recipe_data.get("ingredients", [])
-                            # For simplicity, we'll use just the name and amount from ingredients
-                            simplified_ingredients = []
-                            for ingredient in ingredients:
-                                simplified_ingredients.append(
-                                    {
-                                        "name": ingredient.get("name", ""),
-                                        "amount": ingredient.get("amount", 1),
-                                    }
-                                )
-
-                            # Most recipes don't have a results field in the JSONL, so we'll create one
-                            results = [
-                                {"name": recipe_data.get("name", ""), "amount": 1}
-                            ]
-
-                            recipes[recipe_data["name"]] = Recipe(
-                                name=recipe_data["name"],
-                                ingredients=simplified_ingredients,
-                                results=results,
-                                energy_required=1.0,  # Default value as it's not in the JSONL
-                            )
-                        except json.JSONDecodeError:
-                            print(f"Warning: Could not parse recipe line: {line}")
-                        except KeyError as e:
-                            print(f"Warning: Missing key in recipe: {e}")
-                        except Exception as e:
-                            print(f"Warning: Error processing recipe: {e}")
-
+            if recipes_path.suffix == ".jsonl":
+                recipes = self._load_recipes_jsonl(recipes_path)
+            else:
+                recipes = self._load_recipes_lua(recipes_path)
             self.recipes_loaded = True
             return recipes
         except Exception as e:
             print(f"Error loading recipes from file: {e}")
             raise e
+
+    def _find_data_file(self, relative_path: Path) -> Optional[Path]:
+        """Find repo or package data from this module's location."""
+        for root in Path(__file__).resolve().parents:
+            candidate = root / relative_path
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _load_recipes_jsonl(self, recipes_path: Path) -> Dict[str, Recipe]:
+        recipes = {}
+        with open(recipes_path, "r") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        recipe_data = json.loads(line)
+                        recipes[recipe_data["name"]] = self._recipe_from_data(
+                            recipe_data["name"],
+                            recipe_data.get("ingredients", []),
+                        )
+                    except json.JSONDecodeError:
+                        print(f"Warning: Could not parse recipe line: {line}")
+                    except KeyError as e:
+                        print(f"Warning: Missing key in recipe: {e}")
+                    except Exception as e:
+                        print(f"Warning: Error processing recipe: {e}")
+        return recipes
+
+    def _load_recipes_lua(self, recipes_path: Path) -> Dict[str, Recipe]:
+        from slpp import slpp as lua
+
+        recipes_data = lua.decode(recipes_path.read_text())
+        recipes = {}
+        for recipe_name, recipe_variants in recipes_data:
+            ingredients = recipe_variants[0] if recipe_variants else []
+            recipes[recipe_name] = self._recipe_from_data(recipe_name, ingredients)
+        return recipes
+
+    def _recipe_from_data(
+        self, name: str, ingredients: List[Dict[str, Any]]
+    ) -> Recipe:
+        simplified_ingredients = [
+            {"name": ingredient.get("name", ""), "amount": ingredient.get("amount", 1)}
+            for ingredient in ingredients
+        ]
+        return Recipe(
+            name=name,
+            ingredients=simplified_ingredients,
+            results=[{"name": name, "amount": 1}],
+            energy_required=1.0,
+        )
