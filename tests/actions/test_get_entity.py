@@ -2,7 +2,7 @@ import pytest
 
 from fle.env import DirectionInternal
 from fle.env.entities import Furnace, Position
-from fle.env.game_types import Prototype, Resource
+from fle.env.game_types import Prototype, Resource, Technology
 
 
 @pytest.fixture()
@@ -199,6 +199,68 @@ def test_get_lab(game):
     assert retrieved_lab.lab_input.get(Prototype.AutomationSciencePack, 0) == 1, (
         "Failed to consume science pack"
     )
+
+
+def test_get_lab_point_lookup_matches_scan_after_research_state(configure_game):
+    """
+    Regression for a live open-play failure where a lab still existed but
+    `get_entity(Prototype.Lab, Position(x=-10.5, y=26.5))` failed with:
+
+        AttributeError("'list' object has no attribute 'items'")
+
+    In the same state, `get_entities(position=..., radius=2)` found the lab.
+    A canonical position returned by the broader scan must be usable for the
+    point lookup as well; otherwise agents can incorrectly infer that the lab
+    vanished and rebuild duplicate infrastructure.
+    """
+    game = configure_game(
+        inventory={
+            "lab": 1,
+            "automation-science-pack": 30,
+        },
+        merge=True,
+        all_technologies_researched=False,
+    )
+    game.instance.rcon_client.send_command(
+        '/sc game.forces.player.technologies["steam-power"].researched=true'
+    )
+    game.instance.rcon_client.send_command(
+        '/sc game.forces.player.technologies["automation"].researched=true'
+    )
+
+    requested_position = Position(x=100, y=100)
+    game.move_to(requested_position)
+    lab = game.place_entity(Prototype.Lab, position=requested_position)
+    game.insert_item(Prototype.AutomationSciencePack, lab, quantity=30)
+    game.set_research(Technology.Logistics)
+
+    scanned_labs = game.get_entities(
+        {Prototype.Lab}, position=requested_position, radius=2
+    )
+    assert scanned_labs, "Expected get_entities to find the placed lab"
+    scanned_lab = min(
+        scanned_labs,
+        key=lambda entity: (
+            (entity.position.x - requested_position.x) ** 2
+            + (entity.position.y - requested_position.y) ** 2
+        ),
+    )
+
+    try:
+        retrieved_lab = game.get_entity(Prototype.Lab, scanned_lab.position)
+    except Exception as exc:
+        pytest.fail(
+            "get_entities found a lab at "
+            f"{scanned_lab.position}, but get_entity failed for the same "
+            "canonical position. This reproduces the live failure where "
+            "get_entity raised AttributeError(\"'list' object has no attribute "
+            "'items'\") while the lab was still present."
+        ) from exc
+
+    assert retrieved_lab is not None, "get_entity should return the scanned lab"
+    assert retrieved_lab.position.x == pytest.approx(scanned_lab.position.x)
+    assert retrieved_lab.position.y == pytest.approx(scanned_lab.position.y)
+    assert retrieved_lab.lab_input.get(Prototype.AutomationSciencePack, 0) > 0
 
 
 def test_get_turret(game):
