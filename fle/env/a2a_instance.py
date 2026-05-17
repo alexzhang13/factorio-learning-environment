@@ -59,9 +59,18 @@ class A2AFactorioInstance(FactorioInstance):
 
     @classmethod
     def _ensure_server_running(cls):
-        """Ensure the A2A server is running"""
+        """Ensure the A2A server is running.
+
+        Honours ``FLE_A2A_HOST`` / ``FLE_A2A_PORT`` env vars so multiple FLE
+        clusters (or other services squatting on the default 8000) don't
+        collide. Defaults match upstream: localhost:8000.
+        """
+        import os
+
         if cls._server_manager is None:
-            cls._server_manager = ServerManager()
+            host = os.environ.get("FLE_A2A_HOST", "localhost")
+            port = int(os.environ.get("FLE_A2A_PORT", "8000"))
+            cls._server_manager = ServerManager(host=host, port=port)
         cls._server_manager.start_server()
         return cls._server_manager.server_url
 
