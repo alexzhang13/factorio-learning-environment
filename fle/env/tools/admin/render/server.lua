@@ -172,8 +172,15 @@ storage.actions.render = function(player_index, include_status, radius, compress
         }
     }
 
-    -- ENTITIES - Keep as is, they're already relatively efficient
+    -- ENTITIES - merge neutral (trees, rocks, resources) with player-force
+    -- entities (drills, belts, furnaces, chests, assembling machines, etc.).
+    -- Without the player-force pass, the renderer never sees the factory
+    -- the agents built — see live_hud.py for the prior overlay workaround.
     local entities = surface.find_entities_filtered({ area=area, force='neutral' })
+    local player_entities = surface.find_entities_filtered({ area=area, force='player' })
+    for _, entity in pairs(player_entities) do
+        table.insert(entities, entity)
+    end
     local entity_data = {}
     local characters = surface.find_entities_filtered({area=area, name='character'})
     for _, entity in pairs(characters) do

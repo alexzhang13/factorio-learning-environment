@@ -4,7 +4,14 @@
 if not storage.fast then
     script.on_nth_tick(5, function(event)
         if storage.walking_queues then
-            storage.actions.update_walking_queues()
+            -- Wrap in pcall so a transient walking-queue error (e.g.
+            -- stale player_index after agent reset) doesn't make
+            -- level::on_nth_tick(5) a non-recoverable scenario error,
+            -- which kills the entire multiplayer session.
+            local ok, err = pcall(storage.actions.update_walking_queues)
+            if not ok then
+                log("[move_to/on_nth_tick] update_walking_queues failed: " .. tostring(err))
+            end
         end
     end)
 end

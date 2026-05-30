@@ -93,7 +93,10 @@ class A2AFactorioNamespace(FactorioNamespace):
 
                 formatted_messages.append(
                     {
-                        "messageId": msg.messageId,
+                        # a2a.types.Message attribute is `message_id`;
+                        # the old `msg.messageId` here raised
+                        # AttributeError. Wire dict keeps camelCase.
+                        "messageId": msg.message_id,
                         "sender": msg.metadata.get("sender", ""),
                         "message": content,
                         "timestamp": int(msg.metadata.get("timestamp", 0)),

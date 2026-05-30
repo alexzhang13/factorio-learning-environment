@@ -14,8 +14,17 @@ class SaveResearchState(Tool):
         Returns:
             ResearchState: Complete research state including all technologies
         """
-        state, _ = self.execute(self.player_index)
-
+        # The lua-to-python bridge occasionally returns the raw lua-table
+        # string instead of a deserialized dict when many concurrent
+        # save_research_state calls hit different containers. Retry with
+        # backoff; the failure is transient.
+        import time as _time
+        state = None
+        for _attempt in range(6):
+            state, _ = self.execute(self.player_index)
+            if isinstance(state, dict):
+                break
+            _time.sleep(0.25 * (2 ** _attempt))
         if not isinstance(state, dict):
             raise Exception(f"Could not save research state: {state}")
 

@@ -172,7 +172,13 @@ class A2AProtocolHandler:
                 "sender_id": self.agent_id,
                 "recipient_id": message.metadata.get("recipient"),
                 "message": {
-                    "messageId": message.messageId,
+                    # a2a.types.Message exposes the id as `message_id`
+                    # (snake_case attribute); `messageId` is only a pydantic
+                    # construction alias, NOT an attribute, so the older
+                    # `message.messageId` read here raised AttributeError
+                    # on every send_message. Wire payload keeps the
+                    # camelCase key the server expects.
+                    "messageId": message.message_id,
                     "role": str(message.role),
                     "parts": [
                         {"root": {"text": part.root.text}} for part in message.parts
@@ -209,7 +215,9 @@ class A2AProtocolHandler:
         for msg in messages:
             server_messages.append(
                 {
-                    "messageId": msg.messageId,
+                    # See note in send_message above — attribute is
+                    # `message_id`, not `messageId`.
+                    "messageId": msg.message_id,
                     "role": str(msg.role),
                     "parts": [{"root": {"text": part.root.text}} for part in msg.parts],
                     "metadata": msg.metadata,

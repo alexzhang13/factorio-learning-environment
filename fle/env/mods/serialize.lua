@@ -617,9 +617,13 @@ storage.utils.serialize_entity = function(entity)
         return {}
     end
 
-    -- Check if entity is still valid (hasn't been destroyed/removed)
+    -- Check if entity is still valid (hasn't been destroyed/removed).
+    -- Returning an empty table instead of erroring lets multiplayer saves
+    -- succeed: Factorio's level::on_save handler walks storage and any
+    -- error here aborts the entire scenario save. Invalid entities can't
+    -- be preserved across save/load anyway, so the empty stub is harmless.
     if not entity.valid then
-        error("Cannot serialize entity: LuaEntity is no longer valid (entity may have been destroyed or removed)")
+        return {}
     end
     --game.print("Serializing entity: " .. entity.name .. " with direction: " .. entity.direction)
     local direction = entity.direction
