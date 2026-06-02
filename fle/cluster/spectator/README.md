@@ -26,3 +26,19 @@ Set `FLE_USE_MOD=1`. FLE then calls tools via `remote.call('fle','action',...)`
 instead of injecting `storage.actions.*`, and skips runtime script injection
 (`lua_manager` early-returns). With the flag unset, FLE behaves exactly as
 before (RCON injection), so existing non-spectator clusters are unaffected.
+
+## ⚠️ Security — do NOT expose the game port
+
+To let the spectator join, the server runs without `--use-server-whitelist` and
+with `require_user_verification: false` (a headless, co-located spectator has no
+Factorio.com account / username to whitelist or verify). That means **anyone who
+can reach the game UDP port can join the live game** and grief the agents'
+factory. Therefore:
+
+- **Bind the game (UDP) and RCON (TCP) ports to `127.0.0.1` only**
+  (`docker run -p 127.0.0.1:<port>:...`). The spectator + env are co-located, so
+  localhost binding is enough and blocks all external access. Only the HTTP
+  visualizer is ever tunneled — never the game port.
+- For a non-local spectator, instead re-enable `require_user_verification` + a
+  populated whitelist, or firewall the port to a trusted network. Never just
+  drop the whitelist on a publicly reachable host.

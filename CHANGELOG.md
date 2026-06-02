@@ -5,6 +5,43 @@ All notable changes to the Factorio Learning Environment will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**Live spectator support (`fle_tools` mod + `FLE_USE_MOD`)**
+
+- A Factorio client can now join the live FLE server as a spectator and render
+  the actual game in real time (see `fle/cluster/spectator/`). FLE's tool
+  functions + event handlers are bundled into the `fle_tools` mod so the server
+  and the joining client load identical script state (deterministic lockstep);
+  functions live in `_G` / the `fle` remote interface and `storage` holds only
+  serializable data, so the join-save no longer crashes. Gated behind the
+  `FLE_USE_MOD` env var — unset, FLE behaves exactly as before.
+
+### Security
+
+**⚠️ The spectator-joinable server MUST NOT be exposed publicly.**
+
+To let a spectator join, the FLE server is run *without* `--use-server-whitelist`
+and with `require_user_verification: false` (a headless, co-located spectator
+client has no Factorio.com account and an empty username, so it cannot be
+whitelisted or verified). That combination means **any host that can reach the
+game UDP port can join the game** — including griefers who could move/destroy
+the agents' factory.
+
+Mitigation, and the REQUIRED deployment posture:
+
+- **Bind the game (UDP) and RCON (TCP) ports to `127.0.0.1` only**
+  (`-p 127.0.0.1:<port>:...`). The spectator and the env run on the same host,
+  so localhost binding is sufficient and closes all external access. Never
+  publish the game port on `0.0.0.0` or via a tunnel — only the HTTP visualizer
+  is tunneled, never the game port.
+- If a non-local spectator is ever required, re-enable
+  `require_user_verification` + a populated `--use-server-whitelist`, or place
+  the port behind a private network / firewall ACL. Do not simply drop the
+  whitelist on a publicly reachable host.
+
 ## [0.4.2] - 2026-03-27
 
 ### Added
