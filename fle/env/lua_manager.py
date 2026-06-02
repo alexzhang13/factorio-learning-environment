@@ -22,12 +22,19 @@ class LuaScriptManager:
     def __init__(self, rcon_client: RCONClient, cache_scripts: bool = False):
         self.rcon_client = rcon_client
         self.cache_scripts = cache_scripts
-        if not cache_scripts:
+        # Under FLE_USE_MOD the mod provides all scripts (no RCON injection), so
+        # the script-checksum cache is unused. Skipping it ALSO keeps
+        # checksum.lua's functions (get/set/clear_lua_script_checksum*) OUT of
+        # the level `storage` — otherwise the spectator join-save crashes with
+        # "level::on_save: Cannot serialise lua functions".
+        use_mod = bool(os.environ.get("FLE_USE_MOD"))
+        if not cache_scripts and not use_mod:
             self._clear_game_checksums(rcon_client)
         # self.action_directory = _get_action_dir()
 
         self.lib_directory = _get_mods_dir()
-        if cache_scripts:
+        self.game_checksums = {}
+        if cache_scripts and not use_mod:
             self.init_action_checksums()
             self.game_checksums = self._get_game_checksums(rcon_client)
 
