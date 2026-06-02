@@ -97,7 +97,18 @@ class LuaScriptManager:
 
     def load_init_into_game(self, name):
         if os.environ.get("FLE_USE_MOD"):
-            return  # init scripts (initialise/utils/alerts/...) are in the mod
+            # The mod provides all functions/events, but FLE's RCON result
+            # wrapper (controller: rcon.print(dump({a=a,b=b}))) needs `dump`
+            # in the LEVEL context to serialize tool results — `dump` otherwise
+            # lives only in the mod's Lua state. Inject just that, once.
+            if name == "initialise":
+                self.rcon_client.send_command(
+                    "/sc function dump(o) if type(o)=='table' then local s='{ ' "
+                    "for k,v in pairs(o) do if type(k)~='number' then k='\"'..k..'\"' end "
+                    "s=s..'['..k..'] = '..dump(v)..',' end return s..'} ' "
+                    "else return tostring(o) end end"
+                )
+            return  # all other init scripts (utils/alerts/...) are in the mod
         if name not in self.lib_scripts:
             # attempt to load the script from the filesystem
             script = _load_mods(name)

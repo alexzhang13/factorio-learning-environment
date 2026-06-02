@@ -131,6 +131,7 @@ def main() -> None:
         "  util = function(name, ...) return fle_utils[name](...) end,\n"
         "  get_alerts = function(...) return fle_get_alerts(...) end,\n"
         "  has = function(name) return fle_actions[name] ~= nil end,\n"
+        "  set_storage = function(k, v) storage[k] = v end,\n"
         "})\n"
     )
 

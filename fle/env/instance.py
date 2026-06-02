@@ -119,7 +119,10 @@ class GameControl:
 
     def _reset_elapsed_ticks(self):
         """Reset the elapsed ticks counter to 0."""
-        self.rcon_client.send_command("/sc storage.elapsed_ticks = 0")
+        if os.environ.get("FLE_USE_MOD"):
+            self.rcon_client.send_command("/sc remote.call('fle','set_storage','elapsed_ticks',0)")
+        else:
+            self.rcon_client.send_command("/sc storage.elapsed_ticks = 0")
 
     def reset_to_defaults(self):
         """Reset to the configured default speed and pause state"""
@@ -509,7 +512,10 @@ class FactorioInstance:
     def initialise(
         self, fast=True, all_technologies_researched=True, clear_entities=True
     ):
-        self.rcon_client.send_command(f"/sc storage.fast = {str(fast).lower()}")
+        if os.environ.get("FLE_USE_MOD"):
+            self.rcon_client.send_command(f"/sc remote.call('fle','set_storage','fast',{str(fast).lower()})")
+        else:
+            self.rcon_client.send_command(f"/sc storage.fast = {str(fast).lower()}")
         self.first_namespace._create_agent_characters(self.num_agents)
 
         init_scripts = [
