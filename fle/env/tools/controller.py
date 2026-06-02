@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from timeit import default_timer as timer
 from typing import List, Tuple, Dict, Any
@@ -174,7 +175,14 @@ class Controller:
         """Execute a single command attempt, returns (result, elapsed, lua_response)"""
         start = time.time()
         parameters = [lua.encode(arg) for arg in args]
-        invocation = f"pcall(storage.actions.{self.name}{(', ' if parameters else '') + ','.join(parameters)})"
+        if os.environ.get("FLE_USE_MOD"):
+            # Functions live in the fle_tools MOD (loaded identically by server
+            # and any spectator client), exposed via its 'fle' remote interface.
+            # remote.call is lockstep-safe; this mirrors pcall(storage.actions.X,...).
+            arg_str = (", " + ", ".join(parameters)) if parameters else ""
+            invocation = f"pcall(remote.call, 'fle', 'action', '{self.name}'{arg_str})"
+        else:
+            invocation = f"pcall(storage.actions.{self.name}{(', ' if parameters else '') + ','.join(parameters)})"
         wrapped = f"{COMMAND} a, b = {invocation}; rcon.print(dump({{a=a, b=b}}))"
         lua_response = self.connection.rcon_client.send_command(wrapped)
 

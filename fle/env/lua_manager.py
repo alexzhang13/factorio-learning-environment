@@ -52,6 +52,8 @@ class LuaScriptManager:
             return False, e.args[0]
 
     def load_tool_into_game(self, name):
+        if os.environ.get("FLE_USE_MOD"):
+            return  # tool functions are provided by the fle_tools mod (in _G)
         # Select scripts by exact tool directory, not prefix
         tool_dirs = {
             f"agent/{name}",
@@ -94,6 +96,8 @@ class LuaScriptManager:
                 raise Exception(response)
 
     def load_init_into_game(self, name):
+        if os.environ.get("FLE_USE_MOD"):
+            return  # init scripts (initialise/utils/alerts/...) are in the mod
         if name not in self.lib_scripts:
             # attempt to load the script from the filesystem
             script = _load_mods(name)

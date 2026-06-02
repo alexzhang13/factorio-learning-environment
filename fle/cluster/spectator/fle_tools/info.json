@@ -1,0 +1,9 @@
+{
+  "name": "fle_tools",
+  "version": "0.1.0",
+  "title": "FLE Tools (spectator-safe runtime)",
+  "author": "fle",
+  "factorio_version": "2.0",
+  "dependencies": ["base"],
+  "description": "Bundles the Factorio Learning Environment agent/admin tool functions and event handlers into a mod loaded identically by the server and all clients, so a spectator client can join the live game in lockstep. Functions live in _G (fle_actions/fle_utils) and are exposed via the 'fle' remote interface; storage holds only serializable data. Pair with FLE_USE_MOD=1 on the Python side."
+}

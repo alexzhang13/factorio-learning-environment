@@ -525,7 +525,10 @@ class FactorioInstance:
             self.lua_script_manager.load_init_into_game(script_name)
 
         if self.peaceful:
-            self.rcon_client.send_command("/sc storage.utils.remove_enemies()")
+            if os.environ.get("FLE_USE_MOD"):
+                self.rcon_client.send_command("/sc remote.call('fle','util','remove_enemies')")
+            else:
+                self.rcon_client.send_command("/sc storage.utils.remove_enemies()")
 
         # Generate chunks around origin to enable long-distance pathfinding
         # 4000 tiles in each direction = 125 chunks (each chunk is 32x32 tiles)
@@ -548,8 +551,13 @@ class FactorioInstance:
         :return:
         """
         start = timer()
+        alerts_call = (
+            f"remote.call('fle','get_alerts',{seconds})"
+            if os.environ.get("FLE_USE_MOD")
+            else f"storage.get_alerts({seconds})"
+        )
         lua_response = self.rcon_client.send_command(
-            f"/sc rcon.print(dump(storage.get_alerts({seconds})))"
+            f"/sc rcon.print(dump({alerts_call}))"
         )
         # print(lua_response)
         alert_dict, duration = _lua2python("alerts", lua_response, start=start)
