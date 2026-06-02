@@ -993,7 +993,12 @@ class Renderer:
                 renderer = renderer_manager.get_renderer(entity["name"])
                 if renderer and hasattr(renderer, "render_shadow"):
                     if "direction" in entity:
-                        entity["direction"] = int(entity["direction"].value)
+                        # Snap to a cardinal (0/4/8/12): per-entity renderers key
+                        # sprites on cardinals only, so a 16-dir diagonal value
+                        # (2/6/10/14) would KeyError. Tolerate enum or raw int.
+                        _d = entity["direction"]
+                        _d = _d.value if hasattr(_d, "value") else _d
+                        entity["direction"] = (int(_d) // 4) * 4 % 16
                     image = renderer.render_shadow(entity, grid_view, image_resolver)
             else:
                 image = image_resolver(entity["name"], True)
@@ -1119,7 +1124,12 @@ class Renderer:
                 if renderer and hasattr(renderer, "render"):
                     entity_dict = entity.model_dump()
                     if "direction" in entity_dict:
-                        entity_dict["direction"] = int(entity_dict["direction"].value)
+                        # Snap to a cardinal (0/4/8/12): per-entity renderers key
+                        # sprites on cardinals only, so a 16-dir diagonal value
+                        # (2/6/10/14) would KeyError. Tolerate enum or raw int.
+                        _d = entity_dict["direction"]
+                        _d = _d.value if hasattr(_d, "value") else _d
+                        entity_dict["direction"] = (int(_d) // 4) * 4 % 16
                     image = renderer.render(entity_dict, grid_view, image_resolver)
             else:
                 image = image_resolver(entity.name, False)

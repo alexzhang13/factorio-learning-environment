@@ -26,29 +26,15 @@ from .constants import (
 def flatten_entities(
     entities: List[Union[Dict, Entity, EntityGroup]],
 ) -> List[Union[Entity, EntityCore]]:
-    # Sometimes directions are 0-12
-    max_direction = 0
     for entity in entities:
         if isinstance(entity, dict):
-            if "direction" not in entity:
-                entity["direction"] = 0
-            direction = entity["direction"] if "direction" in entity else 0
-            if direction > max_direction:
-                max_direction = direction
-
-    for entity in entities:
-        if isinstance(entity, dict):
-            # if entity["name"] == "character":
-            #    continue
-
             try:
-                # Sigh. Some blueprints are 0-12.
-                entity["direction"] = (
-                    entity["direction"] / 2
-                    if max_direction > 6
-                    else entity["direction"]
-                )
-
+                # FLE 2.0 dirs are 16-dir (cardinals 0/4/8/12). Snap to nearest
+                # cardinal; the old /2 corrupted them (west 12->6) -> KeyError.
+                d = entity.get("direction", 0) or 0
+                try: d = int(d)
+                except (TypeError, ValueError): d = 0
+                entity["direction"] = (d // 4) * 4 % 16
                 yield EntityCore(**entity)
             except Exception:
                 pass

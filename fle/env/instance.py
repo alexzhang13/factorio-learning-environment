@@ -377,16 +377,27 @@ class FactorioInstance:
             agent_idx=agent_idx, num_agents=self.num_agents
         )
 
+    # Socket timeout for the (single, non-thread-safe) RCON client. Without a
+    # timeout, a receive that overlaps a server save — or an in-flight command
+    # abandoned when FLE's own eval timeout (120s) fires — blocks forever,
+    # leaving the client's ``socket_locked`` flag stuck True so EVERY later call
+    # raises ClientBusy ("already busy") in a permanent cascade. A timeout makes
+    # the socket error out instead, which resets the lock and lets the caller
+    # reconnect. Must exceed the longest legitimate command (the 120s eval).
+    RCON_SOCKET_TIMEOUT = 180
+
     @staticmethod
     def connect_to_server(address, tcp_port):
         try:
             rcon_client = RCONClient(
-                address, tcp_port, RCON_PASSWORD
+                address, tcp_port, RCON_PASSWORD, timeout=FactorioInstance.RCON_SOCKET_TIMEOUT
             )  #'quai2eeha3Lae7v')
             address = address
         except ConnectionError as e:
             print(e)
-            rcon_client = RCONClient("localhost", tcp_port, RCON_PASSWORD)
+            rcon_client = RCONClient(
+                "localhost", tcp_port, RCON_PASSWORD, timeout=FactorioInstance.RCON_SOCKET_TIMEOUT
+            )
             address = "localhost"
 
         try:
