@@ -292,6 +292,10 @@ class FactorioGymEnv(gym.Env):
         self.last_observation = None
         # Track last message timestamp for each agent
         self.last_message_timestamps = {i: 0.0 for i in range(instance.num_agents)}
+        # Last successful entity observation per agent, so a transient
+        # get_entities failure degrades to the prior view instead of wedging
+        # the whole (multi-agent, deterministic) rollout on a hard raise.
+        self.last_entity_obs = {i: [] for i in range(instance.num_agents)}
 
     def get_observation(
         self, agent_idx: int = 0, response: Optional[Response] = None
@@ -304,14 +308,19 @@ class FactorioGymEnv(gym.Env):
         if self.enable_vision:
             map_image = namespace._render().to_base64()
 
-        # Get entity observations
+        # Get entity observations. A get_entities failure must NOT wedge the
+        # whole rollout: degrade to this agent's last successful entity view
+        # (then empty) with a warning, rather than raising. Deterministic game
+        # state means a hard raise here would recur every step for every agent.
         try:
             entities = namespace.get_entities()
+            entity_obs = [e.__dict__ for e in entities]
+            self.last_entity_obs[agent_idx] = entity_obs
         except Exception as e:
-            logger.warning(f"Error getting entities: {e}")
-            raise Exception("Error getting entities while getting observation") from e
-
-        entity_obs = [e.__dict__ for e in entities]
+            logger.warning(
+                f"Error getting entities (agent {agent_idx}); reusing last view: {e}"
+            )
+            entity_obs = self.last_entity_obs.get(agent_idx, [])
 
         # Get inventory observations
         inventory_obs = namespace.inspect_inventory()

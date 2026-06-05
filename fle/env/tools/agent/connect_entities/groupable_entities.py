@@ -146,7 +146,11 @@ def consolidate_underground_belts(belt_groups):
 
         for i, belt in enumerate(group.belts):
             if isinstance(belt, UndergroundBelt):
-                if belt.connected_to:
+                # Only pair when the partner is in THIS group's belt list. A
+                # partner sorted into another group, outside the scan radius, or
+                # referenced by a stale connected_to id would otherwise raise
+                # KeyError(<partner unit_number>) and crash the whole observation.
+                if belt.connected_to and belt.connected_to in underground_pairs:
                     underground_pairs[belt.connected_to]["exit"] = belt
                     underground_pairs[belt.id]["entrance"] = belt
 

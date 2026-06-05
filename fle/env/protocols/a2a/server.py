@@ -5,6 +5,7 @@ import uvicorn
 from datetime import datetime
 import requests
 import multiprocessing
+import re
 import time
 import socket
 import logging
@@ -279,6 +280,15 @@ async def handle_jsonrpc(request: JSONRPCRequest) -> JSONRPCResponse:
                         status_code=400,
                         detail="Invalid recipient_id (must be a non-empty string)",
                     )
+
+                if not registry.get_agent(recipient_id):
+                    # Agents register under their bare index ("0".."3"), but
+                    # LLMs naturally address them as "Agent3" / "agent_3" /
+                    # "agent 3". Normalize to the registered id by pulling out
+                    # the trailing integer before giving up.
+                    m = re.search(r"(\d+)\s*$", recipient_id)
+                    if m and registry.get_agent(m.group(1)):
+                        recipient_id = m.group(1)
 
                 if not registry.get_agent(recipient_id):
                     raise HTTPException(
