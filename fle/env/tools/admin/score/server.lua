@@ -352,8 +352,10 @@ end
 
 storage.actions.score = function()
     local prod_score = production_score.get_production_scores()
-    prod_score["player"] = prod_score["player"] - storage.initial_score["player"]
-    
+    -- Report the ABSOLUTE production score (no baseline subtraction); the
+    -- storage.initial_score baseline gets re-set to current production on tool
+    -- reload, collapsing the score to ~0. See agent/score/server.lua.
+
     -- Try to get goal description from first player if available, otherwise skip
     local goal_description = nil
     if #game.players > 0 and game.players[1] and game.players[1].valid then
