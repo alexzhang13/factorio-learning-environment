@@ -1132,7 +1132,12 @@ class FactorioNamespace:
                     error_message += "Error occurred:\n"
                     for line_num, line_content in error_lines:
                         error_message += f"  Line {line_num}: {line_content}\n"
-                error_type = error_traceback.strip().split("\n")[-1]
+                # Use the full exception message, not just the traceback's last physical line:
+                # Factorio's Lua errors span multiple lines ("...: <reason>\n\t(...tail calls...)"),
+                # so split("\n")[-1] would surface only "(...tail calls...)" and drop the real reason.
+                error_type = f"{type(e).__name__}: {e}".strip()
+                if error_type.endswith("(...tail calls...)"):
+                    error_type = error_type[: -len("(...tail calls...)")].rstrip().rstrip("\t").rstrip()
 
                 if (
                     isinstance(e, NameError)
