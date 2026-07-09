@@ -402,8 +402,14 @@ storage.initial_crafted_net_value = get_crafted_net_value(price_list)
 storage.actions.score = function()
     local price_list = production_score.generate_price_list()
     local prod_score = production_score.get_production_scores()
-    local total_score = prod_score["player"] - storage.initial_score["player"]
-    prod_score["player"] = total_score
+    -- Report the ABSOLUTE production score (total economic value produced),
+    -- NOT a baseline-subtracted delta. storage.initial_score gets re-set to the
+    -- current production whenever the score tool reloads (e.g. each agent
+    -- namespace loading it after production has started), which collapsed the
+    -- reported score to ~0. Open-play maximizes the absolute value; throughput
+    -- tasks score via a separate reward override, so this only affects
+    -- open-play's reward and the (cosmetic) info["production_score"] field.
+    local total_score = prod_score["player"]
 
     -- Calculate automated production score = total - harvested - crafted_net_value
     -- This represents only the value created by automated machines

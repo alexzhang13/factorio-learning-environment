@@ -22,12 +22,19 @@ class LuaScriptManager:
     def __init__(self, rcon_client: RCONClient, cache_scripts: bool = False):
         self.rcon_client = rcon_client
         self.cache_scripts = cache_scripts
-        if not cache_scripts:
+        # Under FLE_USE_MOD the mod provides all scripts (no RCON injection), so
+        # the script-checksum cache is unused. Skipping it ALSO keeps
+        # checksum.lua's functions (get/set/clear_lua_script_checksum*) OUT of
+        # the level `storage` — otherwise the spectator join-save crashes with
+        # "level::on_save: Cannot serialise lua functions".
+        use_mod = bool(os.environ.get("FLE_USE_MOD"))
+        if not cache_scripts and not use_mod:
             self._clear_game_checksums(rcon_client)
         # self.action_directory = _get_action_dir()
 
         self.lib_directory = _get_mods_dir()
-        if cache_scripts:
+        self.game_checksums = {}
+        if cache_scripts and not use_mod:
             self.init_action_checksums()
             self.game_checksums = self._get_game_checksums(rcon_client)
 
@@ -52,6 +59,8 @@ class LuaScriptManager:
             return False, e.args[0]
 
     def load_tool_into_game(self, name):
+        if os.environ.get("FLE_USE_MOD"):
+            return  # tool functions are provided by the fle_tools mod (in _G)
         # Select scripts by exact tool directory, not prefix
         tool_dirs = {
             f"agent/{name}",
@@ -94,6 +103,19 @@ class LuaScriptManager:
                 raise Exception(response)
 
     def load_init_into_game(self, name):
+        if os.environ.get("FLE_USE_MOD"):
+            # The mod provides all functions/events, but FLE's RCON result
+            # wrapper (controller: rcon.print(dump({a=a,b=b}))) needs `dump`
+            # in the LEVEL context to serialize tool results — `dump` otherwise
+            # lives only in the mod's Lua state. Inject just that, once.
+            if name == "initialise":
+                self.rcon_client.send_command(
+                    "/sc function dump(o) if type(o)=='table' then local s='{ ' "
+                    "for k,v in pairs(o) do if type(k)~='number' then k='\"'..k..'\"' end "
+                    "s=s..'['..k..'] = '..dump(v)..',' end return s..'} ' "
+                    "else return tostring(o) end end"
+                )
+            return  # all other init scripts (utils/alerts/...) are in the mod
         if name not in self.lib_scripts:
             # attempt to load the script from the filesystem
             script = _load_mods(name)
